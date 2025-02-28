@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Maintenance Report - Transit Feedback Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: 'Roboto', sans-serif;
+            color: #333;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #2a5298;
+            text-align: center;
+            font-weight: 700;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+            color: #2a5298;
+        }
+
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            border-color: #2a5298;
+            outline: none;
+        }
+
+        textarea {
+            height: 120px;
+            resize: vertical;
+        }
+
+        input[type="file"] {
+            padding: 5px 0;
+        }
+
+        input[type="submit"] {
+            background: #2a5298;
+            color: #fff;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        input[type="submit"]:hover {
+            background: #1e3c72;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #2a5298;
+            text-decoration: none;
+            font-weight: 700;
+            transition: color 0.3s ease;
+        }
+
+        .back-link a:hover {
+            color: #1e3c72;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Maintenance Report</h1>
+        <form method="POST" enctype="multipart/form-data" action="/submit_maintenance">
+            <div class="form-group">
+                <label>Location:</label>
+                <input type="text" name="location" required placeholder="e.g., Downtown Terminal">
+            </div>
+            <div class="form-group">
+                <label>Maintenance Issue:</label>
+                <select name="maintenance_type">
+                    <option value="cleanliness">Cleanliness</option>
+                    <option value="damage">Damage</option>
+                    <option value="equipment">Equipment Failure</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Detailed Description:</label>
+                <textarea name="description" required placeholder="Please provide details..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Photo Evidence (optional):</label>
+                <input type="file" name="photo" accept="image/*">
+            </div>
+            <input type="submit" value="Submit Maintenance Report">
+        </form>
+        <div class="back-link">
+            <a href="index.html">Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

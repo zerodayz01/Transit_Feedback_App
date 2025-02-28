@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transit Feedback Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: 'Roboto', sans-serif;
+            color: #333;
+            min-height: 100vh;
+            padding: 40px 20px;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px;
+            color: #fff;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-weight: 700;
+            font-size: 2.5em;
+        }
+
+        .card-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            gap: 30px;
+        }
+
+        .card {
+            width: 300px;
+            background: #fff;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        .card h2 {
+            color: #2a5298;
+            font-weight: 700;
+        }
+
+        .card p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .description-container {
+            max-width: 800px;
+            margin: 40px auto;
+            text-align: center;
+            color: #fff;
+            position: relative;
+        }
+
+        .description {
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            position: absolute;
+            width: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .description.active {
+            opacity: 1;
+            position: relative;
+        }
+
+        .description h3 {
+            font-weight: 700;
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+
+        .description p {
+            font-size: 1.3em;
+            line-height: 1.5;
+        }
+
+        .video-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            text-align: center;
+            position: relative;
+            padding: 0 60px;
+        }
+
+        .video {
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            position: absolute;
+            width: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .video.active {
+            opacity: 1;
+            position: relative;
+        }
+
+        .video iframe {
+            width: 100%;
+            max-width: 800px;
+            height: 450px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border: none;
+        }
+
+        .arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 24px;
+            color: #2a5298;
+            transition: background 0.3s ease, transform 0.3s ease;
+            user-select: none;
+        }
+
+        .arrow:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .arrow-left {
+            left: 10px;
+        }
+
+        .arrow-right {
+            right: 10px;
+        }
+
+        .intro-paragraph {
+            max-width: 800px;
+            margin: 20px auto 40px auto;
+            text-align: center;
+            color: #fff;
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        footer {
+            text-align: center;
+            color: #fff;
+            padding: 20px;
+            font-size: 0.9em;
+            margin-top: 40px;
+            position: relative; /* Ensure footer doesn’t block content */
+        }
+
+        .footer-features {
+            max-width: 1200px;
+            margin: 20px auto 0 auto;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .feature-card {
+            width: 200px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-decoration: none;
+            color: #333;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative; /* Ensure clickable */
+            z-index: 1; /* Bring above any overlapping elements */
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 1000px) {
+            .card-container {
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+            }
+            .card {
+                width: 100%;
+                max-width: 300px;
+            }
+            .footer-features {
+                flex-direction: column;
+                align-items: center;
+            }
+            .feature-card {
+                width: 100%;
+                max-width: 200px;
+            }
+            .video iframe {
+                max-width: 100%;
+                height: 300px;
+            }
+            .video-container {
+                padding: 0 40px;
+            }
+            .arrow {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><img src="static/bus_icon.png" alt="Bus Icon" style="vertical-align:middle; width:40px; margin-right:10px;"> Transit Feedback Portal</h1>
+    </div>
+
+    <div class="card-container">
+        <a href="feedback.html" class="card">
+            <h2>Bus Feedback</h2>
+            <img src="static/bus.jpg" alt="Bus Feedback Image">
+            <p>Report issues with bus routes, stops, or service quality.</p>
+        </a>
+        <a href="maintenance.html" class="card">
+            <h2>Maintenance</h2>
+            <img src="static/fix.jpg" alt="Maintenance Image">
+            <p>Submit reports about facility or equipment problems.</p>
+        </a>
+        <a href="suggestions.html" class="card">
+            <h2>Suggestions</h2>
+            <img src="static/map.jpg" alt="Suggestions Image">
+            <p>Share ideas to improve our transit system.</p>
+        </a>
+    </div>
+
+    <div class="description-container">
+        <div class="description active" id="desc1">
+            <h3>Welcome to Transit Feedback</h3>
+            <p>This portal is designed to help you voice your concerns and ideas about our transit system, ensuring we keep improving for everyone.</p>
+        </div>
+        <div class="description" id="desc2">
+            <h3>Why Your Feedback Matters</h3>
+            <p>"The feedback portal has been instrumental in identifying service gaps and enhancing rider experience." - Transit Manager</p>
+        </div>
+        <div class="description" id="desc3">
+            <h3>Join the Community</h3>
+            <p>"Submitting feedback is quick and easy, and it really makes a difference!" - Regular Rider</p>
+        </div>
+    </div>
+
+    <div class="video-container">
+        <div class="video active" id="video1">
+            <iframe src="https://www.youtube.com/embed/WemI7bkO6OA?autoplay=1&mute=1&loop=1&playlist=WemI7bkO6OA" allowfullscreen></iframe>
+        </div>
+        <div class="video" id="video2">
+            <iframe src="https://www.youtube.com/embed/ikJbV7FSs-s?autoplay=1&mute=1&loop=1&playlist=ikJbV7FSs-s" allowfullscreen></iframe>
+        </div>
+        <div class="video" id="video3">
+            <iframe src="https://www.youtube.com/embed/rl4IgOpTcPU?autoplay=1&mute=1&loop=1&playlist=rl4IgOpTcPU" allowfullscreen></iframe>
+        </div>
+        <div class="arrow arrow-left" onclick="prevVideo()">◀</div>
+        <div class="arrow arrow-right" onclick="nextVideo()">▶</div>
+    </div>
+
+    <div class="intro-paragraph">
+        <p>The Transit Feedback Portal was created to empower riders and staff to directly contribute to the improvement of our transit system. Inspired by the need to address service delays, maintenance issues, and innovative ideas from our community, this application provides a seamless way to report problems and suggest enhancements. To interact with it, simply click on one of the three cards above—Bus Feedback, Maintenance, or Suggestions—fill out the corresponding form with your details, and submit. Your input helps us ensure a better transit experience for all!</p>
+    </div>
+
+    <footer>
+        <p>© 2025 Transit Feedback Portal. Designed by Aaron Geneus.</p>
+        <div class="footer-features">
+            <a href="feedback_summary.html" class="feature-card">View Submitted Feedback</a>
+            <a href="track_status.html" class="feature-card">Track Status</a>
+            <a href="contact_support.html" class="feature-card">Contact Support</a>
+        </div>
+    </footer>
+
+    <script>
+        // Rotate descriptions
+        let currentDesc = 1;
+        const descriptions = document.querySelectorAll('.description');
+        
+        function cycleDescriptions() {
+            descriptions.forEach(desc => desc.classList.remove('active'));
+            document.getElementById(`desc${currentDesc}`).classList.add('active');
+            currentDesc = (currentDesc % 3) + 1;
+        }
+
+        setInterval(cycleDescriptions, 5000);
+        cycleDescriptions();
+
+        // Rotate videos
+        let currentVideo = 1;
+        const videos = document.querySelectorAll('.video');
+        let autoCycleInterval = setInterval(cycleVideos, 10000);
+
+        function cycleVideos() {
+            videos.forEach(video => video.classList.remove('active'));
+            document.getElementById(`video${currentVideo}`).classList.add('active');
+        }
+
+        function nextVideo() {
+            clearInterval(autoCycleInterval);
+            currentVideo = (currentVideo % 3) + 1;
+            cycleVideos();
+            autoCycleInterval = setInterval(cycleVideos, 10000);
+        }
+
+        function prevVideo() {
+            clearInterval(autoCycleInterval);
+            currentVideo = currentVideo - 1;
+            if (currentVideo < 1) currentVideo = 3;
+            cycleVideos();
+            autoCycleInterval = setInterval(cycleVideos, 10000);
+        }
+
+        cycleVideos();
+    </script>
+</body>
+</html>
