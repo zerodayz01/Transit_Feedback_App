@@ -9,11 +9,11 @@ def home():
 
 # Routes for other HTML pages
 @app.route('/contact_support')
-def contact_support():
+def render_contact_support():
     return render_template("contact_support.html")
 
 @app.route('/feedback')
-def feedback():
+def render_feedback():
     return render_template("feedback.html")
 
 @app.route('/feedback_summary')
