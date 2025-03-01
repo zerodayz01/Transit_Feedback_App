@@ -104,12 +104,18 @@
         .back-link a:hover {
             color: #1e3c72;
         }
+
+        .error {
+            color: red;
+            text-align: center;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Bus Feedback</h1>
-        <form method="POST" enctype="multipart/form-data" action="/submit_bus">
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('feedback') }}">
             <div class="form-group">
                 <label>Route Number:</label>
                 <input type="text" name="route" required placeholder="e.g., 42A">
@@ -137,6 +143,9 @@
             </div>
             <input type="submit" value="Submit Bus Feedback">
         </form>
+        {% if message %}
+            <p class="error">{{ message }}</p>
+        {% endif %}
         <div class="back-link">
             <a href="{{ url_for('home') }}">Back to Home</a>
         </div>
