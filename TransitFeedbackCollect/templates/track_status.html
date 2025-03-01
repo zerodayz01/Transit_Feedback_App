@@ -14,13 +14,26 @@
         .back-link a:hover { color: #1e3c72; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Track Status</h1>
-        <p>This page will allow you to track the status of your submissions once integrated with Azure. Stay tuned!</p>
-        <div class="back-link">
-            <a href="{{ url_for('home') }}">Back to Home</a>
-        </div>
-    </div>
-</body>
+<table border="1">
+    <tr>
+        <th>Type</th>
+        <th>Message</th>
+        <th>Status</th>
+        <th>Action</th>
+    </tr>
+    {% for item in feedback %}
+    <tr>
+        <td>{{ item.type }}</td>
+        <td>{{ item.message }}</td>
+        <td>{{ item.status }}</td>
+        <td>
+            {% if item.status == "Not Viewed" %}
+            <a href="{{ url_for('mark_as_viewed', feedback_id=item.id) }}">Mark as Viewed</a>
+            {% else %}
+            Viewed
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
 </html>
