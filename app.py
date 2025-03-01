@@ -143,6 +143,7 @@ def track_status():
         current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
         status_message = f"Current Status as of {current_time}: All submissions are being reviewed."
 
+        # Handle feedback approval/denial (POST request) only for admin
         if request.method == 'POST' and session.get('logged_in'):
             feedback_id = request.form.get('feedback_id')
             action = request.form.get('action')
@@ -159,16 +160,18 @@ def track_status():
                 except exceptions.CosmosHttpResponseError as e:
                     logger.error(f"Error updating feedback status: {str(e)}")
 
+        # Fetch pending feedback for everyone, all feedback for admin
         feedback_list = []
-        if container and session.get('logged_in'):
+        if container:
             try:
-                query = "SELECT * FROM c"
+                if session.get('logged_in'):
+                    query = "SELECT * FROM c"  # Admin sees all feedback
+                else:
+                    query = "SELECT * FROM c WHERE c.status = 'pending'"  # Public sees only pending
                 feedback_list = list(container.query_items(query=query, enable_cross_partition_query=True))
                 logger.info(f"Fetched {len(feedback_list)} feedback items.")
             except exceptions.CosmosHttpResponseError as e:
                 logger.error(f"Error querying feedback: {str(e)}")
-        else:
-            feedback_list = []  # Non-admins see nothing
 
         try:
             response = requests.get("https://api.example.com/transit-status")
