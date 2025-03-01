@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, get_flashed_messages
 import os
 import requests
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
@@ -32,8 +32,9 @@ else:
             partition_key=PartitionKey(path="/id"),
             offer_throughput=400
         )
+        logger.info("Cosmos DB initialized successfully.")
     except exceptions.CosmosHttpResponseError as e:
-        logger.error(f"Failed to initialize Cosmos DB: {e}")
+        logger.error(f"Failed to initialize Cosmos DB: {str(e)}")
         client = None
         container = None
 
@@ -43,7 +44,8 @@ def home():
     try:
         response = requests.get("https://api.example.com/transit-status")
         transit_data = response.json()
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logger.error(f"Failed to fetch transit status: {str(e)}")
         transit_data = {"status": "Unable to fetch transit data"}
     return render_template("index.html", transit_data=transit_data)
 
@@ -54,46 +56,51 @@ def index():
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     if request.method == 'POST':
-        route = request.form.get('route')
-        stop = request.form.get('stop')
-        issue_type = request.form.get('issue_type')
-        comment = request.form.get('comment')
-        photo = request.files.get('photo')
+        try:
+            route = request.form.get('route')
+            stop = request.form.get('stop')
+            issue_type = request.form.get('issue_type')
+            comment = request.form.get('comment')
+            photo = request.files.get('photo')
 
-        if not all([route, stop, issue_type, comment]):
-            return render_template("feedback.html", message="All fields except photo are required.")
+            if not all([route, stop, issue_type, comment]):
+                logger.warning("Missing required fields in feedback form.")
+                return render_template("feedback.html", message="All fields except photo are required.")
 
-        # Prepare feedback item for Cosmos DB
-        feedback_item = {
-            "id": str(hash(comment + route)),  # Unique ID based on comment and route
-            "route": route,
-            "stop": stop,
-            "issue_type": issue_type,
-            "comment": comment,
-            "date": "2025-03-01",
-            "photo": photo.filename if photo else None
-        }
+            # Prepare feedback item for Cosmos DB
+            feedback_item = {
+                "id": str(hash(comment + route)),  # Unique ID based on comment and route
+                "route": route,
+                "stop": stop,
+                "issue_type": issue_type,
+                "comment": comment,
+                "date": "2025-03-01",
+                "photo": photo.filename if photo else None
+            }
 
-        # Handle photo upload (optional)
-        photo_url = None
-        if photo:
-            # In a real app, save to Azure Blob Storage and get URL
-            # For now, just log the filename
-            logger.info(f"Photo uploaded: {photo.filename}")
-            photo_url = photo.filename  # Placeholder; replace with actual storage logic
+            # Handle photo upload (optional, placeholder for now)
+            photo_url = None
+            if photo:
+                logger.info(f"Photo uploaded: {photo.filename}")
+                photo_url = photo.filename  # Replace with Azure Blob Storage logic later
 
-        if container:
-            try:
-                container.create_item(body=feedback_item)
-                logger.info(f"Feedback saved: {feedback_item}")
-            except exceptions.CosmosHttpResponseError as e:
-                logger.error(f"Error saving feedback: {e}")
-                return render_template("feedback.html", message="Error saving feedback due to database issue.")
-        
-        # Flash feedback details for track_status
-        feedback_display = f"Route: {route}, Stop: {stop}, Issue: {issue_type}, Comment: {comment}" + (f", Photo: {photo_url}" if photo_url else "")
-        flash(feedback_display)
-        return redirect(url_for('thank_you'))
+            # Save to Cosmos DB if available
+            if container:
+                try:
+                    container.create_item(body=feedback_item)
+                    logger.info(f"Feedback saved: {feedback_item}")
+                except exceptions.CosmosHttpResponseError as e:
+                    logger.error(f"Error saving feedback to Cosmos DB: {str(e)}")
+                    return render_template("feedback.html", message="Error saving feedback to database.")
+
+            # Flash feedback details for track_status
+            feedback_display = f"Route: {route}, Stop: {stop}, Issue: {issue_type}, Comment: {comment}" + (f", Photo: {photo_url}" if photo_url else "")
+            flash(feedback_display)
+            return redirect(url_for('thank_you'))
+
+        except Exception as e:
+            logger.error(f"Unexpected error in feedback submission: {str(e)}")
+            return render_template("feedback.html", message="An unexpected error occurred. Please try again.")
     
     return render_template("feedback.html")
 
@@ -111,16 +118,21 @@ def maintenance():
 
 @app.route('/track_status')
 def track_status():
-    feedback = None
-    flashed_messages = get_flashed_messages()
-    if flashed_messages:
-        feedback = flashed_messages[0]  # Display the formatted feedback
     try:
-        response = requests.get("https://api.example.com/transit-status")
-        status_data = response.json()
-    except requests.RequestException:
-        status_data = {"status": "Status unavailable"}
-    return render_template("track_status.html", status_data=status_data, feedback=feedback)
+        feedback = None
+        flashed_messages = get_flashed_messages()
+        if flashed_messages:
+            feedback = flashed_messages[0]  # Display the formatted feedback
+        try:
+            response = requests.get("https://api.example.com/transit-status")
+            status_data = response.json()
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch transit status: {str(e)}")
+            status_data = {"status": "Status unavailable"}
+        return render_template("track_status.html", status_data=status_data, feedback=feedback)
+    except Exception as e:
+        logger.error(f"Error in track_status route: {str(e)}")
+        return render_template("track_status.html", status_data={"status": "Error loading status"}, feedback=None)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
