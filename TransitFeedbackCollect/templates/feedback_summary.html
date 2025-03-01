@@ -25,10 +25,21 @@
             <h2>Approved Feedback</h2>
             {% for feedback in feedback_list %}
                 <div class="feedback-box">
-                    <p><strong>Route:</strong> {{ feedback.route }}</p>
-                    <p><strong>Stop:</strong> {{ feedback.stop }}</p>
-                    <p><strong>Issue:</strong> {{ feedback.issue_type }}</p>
-                    <p><strong>Comment:</strong> {{ feedback.comment }}</p>
+                    <p><strong>Type:</strong> {{ feedback.type }}</p>
+                    {% if feedback.type == "Bus Feedback" %}
+                        <p><strong>Route:</strong> {{ feedback.route }}</p>
+                        <p><strong>Stop:</strong> {{ feedback.stop }}</p>
+                        <p><strong>Issue:</strong> {{ feedback.issue_type }}</p>
+                        <p><strong>Comment:</strong> {{ feedback.comment }}</p>
+                    {% elif feedback.type == "Maintenance" %}
+                        <p><strong>Location:</strong> {{ feedback.location }}</p>
+                        <p><strong>Issue:</strong> {{ feedback.maintenance_type }}</p>
+                        <p><strong>Message:</strong> {{ feedback.message }}</p>
+                    {% elif feedback.type == "Suggestion" %}
+                        <p><strong>Category:</strong> {{ feedback.category }}</p>
+                        <p><strong>Location:</strong> {{ feedback.location or 'N/A' }}</p>
+                        <p><strong>Suggestion:</strong> {{ feedback.suggestion }}</p>
+                    {% endif %}
                     <p><strong>Date:</strong> {{ feedback.date }}</p>
                     {% if feedback.photo %}
                         <p><strong>Photo:</strong></p>
