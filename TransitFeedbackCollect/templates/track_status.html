@@ -50,7 +50,7 @@
                     <p><strong>Date:</strong> {{ feedback.date }}</p>
                     {% if feedback.photo %}
                         <p><strong>Photo:</strong></p>
-                        <img src="{{ url_for('static', filename='uploads/' + feedback.photo) }}" alt="Feedback Image">
+                        <img src="{{ feedback.photo }}" alt="Feedback Image">
                     {% endif %}
                     <p><strong>Status:</strong> {{ feedback.status | upper }}</p>
                     {% if logged_in and feedback.status == 'pending' %}
