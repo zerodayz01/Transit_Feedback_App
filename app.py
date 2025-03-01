@@ -125,6 +125,8 @@ def feedback():
             logger.error(f"Unexpected error in bus feedback submission: {str(e)}")
             return render_template("feedback.html", message="An unexpected error occurred.")
     
+    # Ensure GET requests always render feedback.html
+    logger.info("Rendering feedback.html for GET request")
     return render_template("feedback.html")
 
 # Maintenance route
