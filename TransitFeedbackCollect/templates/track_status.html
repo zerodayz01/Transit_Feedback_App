@@ -90,17 +90,26 @@
         
         <!-- Transit Status Section -->
         <div class="status-box">
-            <p><strong>Current Status:</strong> {{ status_data.status }}</p>
+            <p><strong>{{ status_data.status }}</strong></p>
         </div>
 
         <!-- Feedback Section -->
-        {% if feedback %}
-            <h2>Latest Feedback</h2>
-            <div class="feedback-box">
-                {% for line in feedback.split(', ') %}
-                    <p>{{ line }}</p>
-                {% endfor %}
-            </div>
+        {% if feedback_list %}
+            <h2>Submitted Feedback</h2>
+            {% for feedback in feedback_list %}
+                <div class="feedback-box">
+                    <p><strong>Route:</strong> {{ feedback.route }}</p>
+                    <p><strong>Stop:</strong> {{ feedback.stop }}</p>
+                    <p><strong>Issue:</strong> {{ feedback.issue_type }}</p>
+                    <p><strong>Comment:</strong> {{ feedback.comment }}</p>
+                    <p><strong>Date:</strong> {{ feedback.date }}</p>
+                    {% if feedback.photo %}
+                        <p><strong>Photo:</strong> {{ feedback.photo }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No feedback submitted yet.</p>
         {% endif %}
 
         <div class="back-link">
