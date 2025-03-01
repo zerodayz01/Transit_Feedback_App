@@ -119,7 +119,7 @@ def feedback():
                     logger.error(f"Error saving bus feedback: {str(e)}")
                     return render_template("feedback.html", message="Error saving feedback to database.")
 
-            return redirect(url_for('thank_you'))
+            return redirect(url_for('thank_you', submission_type="Bus Feedback"))
 
         except Exception as e:
             logger.error(f"Unexpected error in bus feedback submission: {str(e)}")
@@ -166,7 +166,7 @@ def maintenance():
                     logger.error(f"Error saving maintenance report: {str(e)}")
                     return render_template("maintenance.html", message="Error saving report to database.")
 
-            return redirect(url_for('thank_you'))
+            return redirect(url_for('thank_you', submission_type="Maintenance"))
 
         except Exception as e:
             logger.error(f"Unexpected error in maintenance submission: {str(e)}")
@@ -206,7 +206,7 @@ def suggestions():
                     logger.error(f"Error saving suggestion: {str(e)}")
                     return render_template("suggestions.html", message="Error saving suggestion to database.")
 
-            return redirect(url_for('thank_you'))
+            return redirect(url_for('thank_you', submission_type="Suggestion"))
 
         except Exception as e:
             logger.error(f"Unexpected error in suggestion submission: {str(e)}")
@@ -234,7 +234,7 @@ def contact_support():
                 "email": email,
                 "message": message,
                 "date": datetime.utcnow().isoformat(),
-                "photo": None,  # No photo for contact support
+                "photo": None,
                 "status": "pending"
             }
 
@@ -246,7 +246,7 @@ def contact_support():
                     logger.error(f"Error saving contact support request: {str(e)}")
                     return render_template("contact_support.html", message="Error saving request to database.")
 
-            return redirect(url_for('thank_you'))
+            return redirect(url_for('thank_you', submission_type="Contact Support"))
 
         except Exception as e:
             logger.error(f"Unexpected error in contact support submission: {str(e)}")
@@ -254,9 +254,15 @@ def contact_support():
     
     return render_template("contact_support.html")
 
+# Thank You route with dynamic message
 @app.route('/thank_you')
 def thank_you():
-    return render_template("thank_you.html")
+    submission_type = request.args.get('submission_type', 'General')
+    if submission_type == "Contact Support":
+        thank_you_message = "A member from customer support will be in contact soon."
+    else:
+        thank_you_message = "Thank you for your submission!"
+    return render_template("thank_you.html", message=thank_you_message)
 
 @app.route('/track_status', methods=['GET', 'POST'])
 def track_status():
@@ -284,9 +290,11 @@ def track_status():
         if container:
             try:
                 if session.get('logged_in'):
-                    query = "SELECT * FROM c"
+                    # Admin sees all feedback except Contact Support
+                    query = "SELECT * FROM c WHERE c.type != 'Contact Support'"
                 else:
-                    query = "SELECT * FROM c WHERE c.status = 'pending'"
+                    # Public sees only pending feedback except Contact Support
+                    query = "SELECT * FROM c WHERE c.status = 'pending' AND c.type != 'Contact Support'"
                 feedback_list = list(container.query_items(query=query, enable_cross_partition_query=True))
                 logger.info(f"Fetched {len(feedback_list)} feedback items.")
             except exceptions.CosmosHttpResponseError as e:
@@ -310,7 +318,8 @@ def feedback_summary():
         feedback_list = []
         if container:
             try:
-                query = "SELECT * FROM c WHERE c.status = 'approved'"
+                # Exclude Contact Support from summary
+                query = "SELECT * FROM c WHERE c.status = 'approved' AND c.type != 'Contact Support'"
                 feedback_list = list(container.query_items(query=query, enable_cross_partition_query=True))
                 logger.info(f"Fetched {len(feedback_list)} approved feedback items.")
             except exceptions.CosmosHttpResponseError as e:
