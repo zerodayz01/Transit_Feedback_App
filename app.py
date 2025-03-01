@@ -3,6 +3,7 @@ import os
 import requests
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
 import logging
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -74,11 +75,11 @@ def feedback():
                 "stop": stop,
                 "issue_type": issue_type,
                 "comment": comment,
-                "date": "2025-03-01",
+                "date": datetime.utcnow().isoformat(),  # Use current UTC time
                 "photo": photo.filename if photo else None
             }
 
-            # Handle photo upload (optional, placeholder for now)
+            # Handle photo upload (placeholder for now)
             photo_url = None
             if photo:
                 logger.info(f"Photo uploaded: {photo.filename}")
@@ -93,9 +94,7 @@ def feedback():
                     logger.error(f"Error saving feedback to Cosmos DB: {str(e)}")
                     return render_template("feedback.html", message="Error saving feedback to database.")
 
-            # Flash feedback details for track_status
-            feedback_display = f"Route: {route}, Stop: {stop}, Issue: {issue_type}, Comment: {comment}" + (f", Photo: {photo_url}" if photo_url else "")
-            flash(feedback_display)
+            # No need to flash; feedback will persist in Cosmos DB
             return redirect(url_for('thank_you'))
 
         except Exception as e:
@@ -119,20 +118,34 @@ def maintenance():
 @app.route('/track_status')
 def track_status():
     try:
-        feedback = None
-        flashed_messages = get_flashed_messages()
-        if flashed_messages:
-            feedback = flashed_messages[0]  # Display the formatted feedback
+        # Get current date and time
+        current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        status_message = f"Current Status as of {current_time}: All submissions are being reviewed."
+
+        # Fetch all feedback from Cosmos DB
+        feedback_list = []
+        if container:
+            try:
+                query = "SELECT * FROM c"
+                items = list(container.query_items(query=query, enable_cross_partition_query=True))
+                feedback_list = items
+                logger.info(f"Fetched {len(feedback_list)} feedback items from Cosmos DB.")
+            except exceptions.CosmosHttpResponseError as e:
+                logger.error(f"Error querying feedback: {str(e)}")
+
+        # Try to get external transit status (optional)
         try:
             response = requests.get("https://api.example.com/transit-status")
             status_data = response.json()
         except requests.RequestException as e:
             logger.error(f"Failed to fetch transit status: {str(e)}")
-            status_data = {"status": "Status unavailable"}
-        return render_template("track_status.html", status_data=status_data, feedback=feedback)
+            status_data = {"status": status_message}
+
+        return render_template("track_status.html", status_data=status_data, feedback_list=feedback_list)
+    
     except Exception as e:
         logger.error(f"Error in track_status route: {str(e)}")
-        return render_template("track_status.html", status_data={"status": "Error loading status"}, feedback=None)
+        return render_template("track_status.html", status_data={"status": "Error loading status"}, feedback_list=[])
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
