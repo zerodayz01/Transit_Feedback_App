@@ -1,153 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Bus Feedback - Transit Feedback Portal</title>
+    <title>Feedback Summary - Transit Feedback Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            font-family: 'Roboto', sans-serif;
-            color: #333;
-            min-height: 100vh;
-            padding: 40px 20px;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: #fff;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            padding: 30px;
-        }
-
-        h1 {
-            color: #2a5298;
-            text-align: center;
-            font-weight: 700;
-            margin-bottom: 30px;
-            font-size: 2em;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 700;
-            color: #2a5298;
-        }
-
-        input[type="text"],
-        textarea,
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-        }
-
-        input[type="text"]:focus,
-        textarea:focus,
-        select:focus {
-            border-color: #2a5298;
-            outline: none;
-        }
-
-        textarea {
-            height: 120px;
-            resize: vertical;
-        }
-
-        input[type="file"] {
-            padding: 5px 0;
-        }
-
-        input[type="submit"] {
-            background: #2a5298;
-            color: #fff;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 16px;
-            transition: background 0.3s ease;
-        }
-
-        input[type="submit"]:hover {
-            background: #1e3c72;
-        }
-
-        .back-link {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .back-link a {
-            color: #2a5298;
-            text-decoration: none;
-            font-weight: 700;
-            transition: color 0.3s ease;
-        }
-
-        .back-link a:hover {
-            color: #1e3c72;
-        }
-
-        .error {
-            color: red;
-            text-align: center;
-            margin-top: 10px;
-        }
+        body { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); font-family: 'Roboto', sans-serif; color: #333; min-height: 100vh; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); padding: 30px; }
+        h1 { color: #2a5298; text-align: center; font-weight: 700; margin-bottom: 20px; font-size: 2em; }
+        h2 { color: #2a5298; font-weight: 700; margin-top: 30px; margin-bottom: 15px; font-size: 1.5em; }
+        p { font-size: 16px; color: #333; margin-bottom: 10px; }
+        .feedback-box { background: #e8f0fe; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .feedback-box p { margin: 5px 0; }
+        .back-link { text-align: center; margin-top: 20px; }
+        .back-link a { color: #2a5298; text-decoration: none; font-weight: 700; transition: color 0.3s ease; }
+        .back-link a:hover { color: #1e3c72; }
+        img { max-width: 100%; height: auto; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Bus Feedback</h1>
-        <form method="POST" enctype="multipart/form-data" action="{{ url_for('feedback') }}">
-            <div class="form-group">
-                <label>Route Number:</label>
-                <input type="text" name="route" required placeholder="e.g., 42A">
-            </div>
-            <div class="form-group">
-                <label>Bus Stop ID/Name:</label>
-                <input type="text" name="stop" required placeholder="e.g., Main St & 5th Ave">
-            </div>
-            <div class="form-group">
-                <label>Issue Type:</label>
-                <select name="issue_type">
-                    <option value="delay">Delay</option>
-                    <option value="crowding">Crowding</option>
-                    <option value="driver">Driver Conduct</option>
-                    <option value="other">Other</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Comment:</label>
-                <textarea name="comment" required placeholder="Describe your experience..."></textarea>
-            </div>
-            <div class="form-group">
-                <label>Photo (optional):</label>
-                <input type="file" name="photo" accept="image/*">
-            </div>
-            <input type="submit" value="Submit Bus Feedback">
-        </form>
-        {% if message %}
-            <p class="error">{{ message }}</p>
+        <h1>Feedback Summary</h1>
+        
+        {% if feedback_list %}
+            <h2>Approved Feedback</h2>
+            {% for feedback in feedback_list %}
+                <div class="feedback-box">
+                    <p><strong>Type:</strong> {{ feedback.type }}</p>
+                    {% if feedback.type == "Bus Feedback" %}
+                        <p><strong>Route:</strong> {{ feedback.route }}</p>
+                        <p><strong>Stop:</strong> {{ feedback.stop }}</p>
+                        <p><strong>Issue:</strong> {{ feedback.issue_type }}</p>
+                        <p><strong>Comment:</strong> {{ feedback.comment }}</p>
+                    {% elif feedback.type == "Maintenance" %}
+                        <p><strong>Location:</strong> {{ feedback.location }}</p>
+                        <p><strong>Issue:</strong> {{ feedback.maintenance_type }}</p>
+                        <p><strong>Message:</strong> {{ feedback.message }}</p>
+                    {% elif feedback.type == "Suggestion" %}
+                        <p><strong>Category:</strong> {{ feedback.category }}</p>
+                        <p><strong>Location:</strong> {{ feedback.location or 'N/A' }}</p>
+                        <p><strong>Suggestion:</strong> {{ feedback.suggestion }}</p>
+                    {% endif %}
+                    <p><strong>Date:</strong> {{ feedback.date }}</p>
+                    {% if feedback.photo %}
+                        <p><strong>Photo:</strong></p>
+                        <img src="{{ url_for('static', filename='uploads/' + feedback.photo) }}" alt="Feedback Image">
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No approved feedback yet.</p>
         {% endif %}
+
         <div class="back-link">
-            <a href="{{ url_for('home') }}">Back to Home</a>
+            <a href="{{ url_for('track_status') }}">Back to Track Status</a>
         </div>
     </div>
 </body>
