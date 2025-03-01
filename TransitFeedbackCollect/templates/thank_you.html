@@ -58,24 +58,6 @@
         .nav-links a:hover {
             color: #1e3c72;
         }
-
-        .button {
-            background: #2a5298; /* Blue background matching other submission buttons */
-            color: #fff; /* White text */
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 16px;
-            font-weight: 700; /* Match bold text of other buttons */
-            transition: background 0.3s ease, transform 0.2s ease;
-            display: inline-block;
-        }
-
-        .button:hover {
-            background: #1e3c72; /* Darker blue on hover */
-            transform: scale(1.05); /* Same hover animation as others */
-        }
     </style>
 </head>
 <body>
@@ -84,7 +66,7 @@
         <p>{{ message }}</p>
         <div class="nav-links">
             {% if submission_type == "Contact Support" %}
-                <a href="{{ url_for('home') }}" class="button">Back to Home</a>
+                <a href="{{ url_for('home') }}">Back to Home</a>
             {% else %}
                 <a href="{{ url_for('track_status') }}">View Track Status</a>
                 <a href="{{ url_for('home') }}">Back to Home</a>
