@@ -38,6 +38,7 @@
             flex-direction: row;
             justify-content: center;
             gap: 30px;
+            position: relative; /* Ensure positioning context for admin button */
         }
 
         .card {
@@ -187,7 +188,7 @@
             padding: 20px;
             font-size: 0.9em;
             margin-top: 40px;
-            position: relative; /* Ensure footer doesn’t block content */
+            position: relative;
         }
 
         .footer-features {
@@ -214,11 +215,36 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative; /* Ensure clickable */
-            z-index: 1; /* Bring above any overlapping elements */
+            position: relative;
+            z-index: 1;
         }
 
         .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .admin-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-decoration: none;
+            color: #333;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .admin-button:hover {
             transform: translateY(-10px);
             box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
         }
@@ -253,6 +279,11 @@
                 height: 40px;
                 font-size: 20px;
             }
+            .admin-button {
+                width: 150px;
+                font-size: 0.9em;
+                padding: 10px;
+            }
         }
     </style>
 </head>
@@ -262,21 +293,22 @@
     </div>
 
     <div class="card-container">
-        <a href="feedback" class="card">
+        <a href="{{ url_for('feedback') }}" class="card">
             <h2>Bus Feedback</h2>
             <img src="static/bus.jpg" alt="Bus Feedback Image">
             <p>Report issues with bus routes, stops, or service quality.</p>
         </a>
-        <a href="maintenance" class="card">
+        <a href="{{ url_for('maintenance') }}" class="card">
             <h2>Maintenance</h2>
             <img src="static/fix.jpg" alt="Maintenance Image">
             <p>Submit reports about facility or equipment problems.</p>
         </a>
-        <a href="suggestions" class="card">
+        <a href="{{ url_for('suggestions') }}" class="card">
             <h2>Suggestions</h2>
             <img src="static/map.jpg" alt="Suggestions Image">
             <p>Share ideas to improve our transit system.</p>
         </a>
+        <a href="{{ url_for('login') }}" class="admin-button">Administrator Login</a>
     </div>
 
     <div class="description-container">
@@ -315,8 +347,8 @@
     <footer>
         <p>© 2025 Transit Feedback Portal. Designed by Aaron Geneus.</p>
         <div class="footer-features">
-            <a href="feedback_summary" class="feature-card">View Submitted Feedback</a>
-            <a href="track_status" class="feature-card">Track Status</a>
+            <a href="{{ url_for('feedback_summary') }}" class="feature-card">View Submitted Feedback</a>
+            <a href="{{ url_for('track_status') }}" class="feature-card">Track Status</a>
             <a href="contact_support" class="feature-card">Contact Support</a>
         </div>
     </footer>
