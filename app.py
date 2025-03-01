@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 # Flask setup
 app = Flask(__name__, template_folder="TransitFeedbackCollect/templates", static_folder="TransitFeedbackCollect/static")
-app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")  # Needed for session and flash
+app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")
 
-# Hardcoded admin credentials (replace with secure storage in production)
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD_HASH = generate_password_hash("your-admin-password")  # Replace with your password
+# Admin credentials
+ADMIN_USERNAME = "transitadmin"
+ADMIN_PASSWORD_HASH = generate_password_hash("transitadmin")  # Password: transitadmin
 
 # Azure Cosmos DB setup
 COSMOS_ENDPOINT = os.getenv("COSMOS_ENDPOINT")
@@ -92,26 +92,23 @@ def feedback():
                 logger.warning("Missing required fields in feedback form.")
                 return render_template("feedback.html", message="All fields except photo are required.")
 
-            # Prepare feedback item for Cosmos DB
             feedback_item = {
-                "id": str(hash(comment + route)),  # Unique ID
+                "id": str(hash(comment + route)),
                 "route": route,
                 "stop": stop,
                 "issue_type": issue_type,
                 "comment": comment,
                 "date": datetime.utcnow().isoformat(),
                 "photo": photo.filename if photo else None,
-                "status": "pending"  # New field to track approval
+                "status": "pending"
             }
 
-            # Handle photo upload (placeholder for now)
-            photo_url = None
             if photo:
-                logger.info(f"Photo uploaded: {photo.filename}")
-                photo_url = photo.filename  # Replace with Azure Blob Storage URL later
-                feedback_item["photo"] = photo_url
+                photo_path = os.path.join('TransitFeedbackCollect/static/uploads', photo.filename)
+                photo.save(photo_path)
+                feedback_item["photo"] = photo.filename
+                logger.info(f"Photo saved locally: {photo_path}")
 
-            # Save to Cosmos DB
             if container:
                 try:
                     container.create_item(body=feedback_item)
@@ -143,32 +140,35 @@ def maintenance():
 @app.route('/track_status', methods=['GET', 'POST'])
 def track_status():
     try:
-        # Get current date and time
         current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
         status_message = f"Current Status as of {current_time}: All submissions are being reviewed."
 
-        # Handle feedback approval (POST request)
         if request.method == 'POST' and session.get('logged_in'):
             feedback_id = request.form.get('feedback_id')
+            action = request.form.get('action')
             if feedback_id and container:
                 try:
-                    # Update status to approved
                     item = container.read_item(item=feedback_id, partition_key=feedback_id)
-                    item["status"] = "approved"
+                    if action == "approve":
+                        item["status"] = "approved"
+                        logger.info(f"Feedback {feedback_id} approved.")
+                    elif action == "deny":
+                        item["status"] = "denied"
+                        logger.info(f"Feedback {feedback_id} denied.")
                     container.replace_item(item=feedback_id, body=item)
-                    logger.info(f"Feedback {feedback_id} approved.")
                 except exceptions.CosmosHttpResponseError as e:
-                    logger.error(f"Error approving feedback: {str(e)}")
+                    logger.error(f"Error updating feedback status: {str(e)}")
 
-        # Fetch pending feedback
         feedback_list = []
-        if container:
+        if container and session.get('logged_in'):
             try:
-                query = "SELECT * FROM c WHERE c.status = 'pending'"
+                query = "SELECT * FROM c"
                 feedback_list = list(container.query_items(query=query, enable_cross_partition_query=True))
-                logger.info(f"Fetched {len(feedback_list)} pending feedback items.")
+                logger.info(f"Fetched {len(feedback_list)} feedback items.")
             except exceptions.CosmosHttpResponseError as e:
                 logger.error(f"Error querying feedback: {str(e)}")
+        else:
+            feedback_list = []  # Non-admins see nothing
 
         try:
             response = requests.get("https://api.example.com/transit-status")
@@ -185,7 +185,6 @@ def track_status():
 @app.route('/feedback_summary')
 def feedback_summary():
     try:
-        # Fetch approved feedback
         feedback_list = []
         if container:
             try:
