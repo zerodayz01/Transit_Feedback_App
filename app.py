@@ -180,7 +180,7 @@ def suggestions():
     if request.method == 'POST':
         try:
             category = request.form.get('category')
-            location = request.form.get('location', '')  # Optional field
+            location = request.form.get('location', '')
             suggestion = request.form.get('suggestion')
 
             if not all([category, suggestion]):
@@ -194,7 +194,7 @@ def suggestions():
                 "location": location,
                 "suggestion": suggestion,
                 "date": datetime.utcnow().isoformat(),
-                "photo": None,  # No photo field in this form
+                "photo": None,
                 "status": "pending"
             }
 
@@ -213,6 +213,46 @@ def suggestions():
             return render_template("suggestions.html", message="An unexpected error occurred.")
     
     return render_template("suggestions.html")
+
+# Contact Support route
+@app.route('/contact_support', methods=['GET', 'POST'])
+def contact_support():
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name')
+            email = request.form.get('email')
+            message = request.form.get('message')
+
+            if not all([name, email, message]):
+                logger.warning("Missing required fields in contact support form.")
+                return render_template("contact_support.html", message="All fields are required.")
+
+            feedback_item = {
+                "id": str(hash(message + name)),
+                "type": "Contact Support",
+                "name": name,
+                "email": email,
+                "message": message,
+                "date": datetime.utcnow().isoformat(),
+                "photo": None,  # No photo for contact support
+                "status": "pending"
+            }
+
+            if container:
+                try:
+                    container.create_item(body=feedback_item)
+                    logger.info(f"Contact support request saved: {feedback_item}")
+                except exceptions.CosmosHttpResponseError as e:
+                    logger.error(f"Error saving contact support request: {str(e)}")
+                    return render_template("contact_support.html", message="Error saving request to database.")
+
+            return redirect(url_for('thank_you'))
+
+        except Exception as e:
+            logger.error(f"Unexpected error in contact support submission: {str(e)}")
+            return render_template("contact_support.html", message="An unexpected error occurred.")
+    
+    return render_template("contact_support.html")
 
 @app.route('/thank_you')
 def thank_you():
