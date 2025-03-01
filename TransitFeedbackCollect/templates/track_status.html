@@ -4,36 +4,108 @@
     <title>Track Status - Transit Feedback Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); font-family: 'Roboto', sans-serif; color: #333; min-height: 100vh; padding: 40px 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); padding: 30px; }
-        h1 { color: #2a5298; text-align: center; font-weight: 700; margin-bottom: 30px; font-size: 2em; }
-        p { font-size: 1.1em; line-height: 1.6; color: #666; text-align: center; }
-        .back-link { text-align: center; margin-top: 20px; }
-        .back-link a { color: #2a5298; text-decoration: none; font-weight: 700; transition: color 0.3s ease; }
-        .back-link a:hover { color: #1e3c72; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: 'Roboto', sans-serif;
+            color: #333;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #2a5298;
+            text-align: center;
+            font-weight: 700;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        h2 {
+            color: #2a5298;
+            font-weight: 700;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        p {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .status-box {
+            background: #f5f7fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .feedback-box {
+            background: #e8f0fe;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .feedback-box p {
+            margin: 5px 0;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #2a5298;
+            text-decoration: none;
+            font-weight: 700;
+            transition: color 0.3s ease;
+        }
+
+        .back-link a:hover {
+            color: #1e3c72;
+        }
     </style>
 </head>
-<table border="1">
-    <tr>
-        <th>Type</th>
-        <th>Message</th>
-        <th>Status</th>
-        <th>Action</th>
-    </tr>
-    {% for item in feedback %}
-    <tr>
-        <td>{{ item.type }}</td>
-        <td>{{ item.message }}</td>
-        <td>{{ item.status }}</td>
-        <td>
-            {% if item.status == "Not Viewed" %}
-            <a href="{{ url_for('mark_as_viewed', feedback_id=item.id) }}">Mark as Viewed</a>
-            {% else %}
-            Viewed
-            {% endif %}
-        </td>
-    </tr>
-    {% endfor %}
-</table>
+<body>
+    <div class="container">
+        <h1>Track Transit Status</h1>
+        
+        <!-- Transit Status Section -->
+        <div class="status-box">
+            <p><strong>Current Status:</strong> {{ status_data.status }}</p>
+        </div>
+
+        <!-- Feedback Section -->
+        {% if feedback %}
+            <h2>Latest Feedback</h2>
+            <div class="feedback-box">
+                {% for line in feedback.split(', ') %}
+                    <p>{{ line }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="back-link">
+            <a href="{{ url_for('home') }}">Back to Home</a>
+        </div>
+    </div>
+</body>
 </html>
