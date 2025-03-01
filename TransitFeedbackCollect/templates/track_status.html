@@ -28,40 +28,36 @@
             <p><strong>{{ status_data.status }}</strong></p>
         </div>
 
-        {% if logged_in %}
-            {% if feedback_list %}
-                <h2>All Feedback Submissions</h2>
-                {% for feedback in feedback_list %}
-                    <div class="feedback-box">
-                        <p><strong>Route:</strong> {{ feedback.route }}</p>
-                        <p><strong>Stop:</strong> {{ feedback.stop }}</p>
-                        <p><strong>Issue:</strong> {{ feedback.issue_type }}</p>
-                        <p><strong>Comment:</strong> {{ feedback.comment }}</p>
-                        <p><strong>Date:</strong> {{ feedback.date }}</p>
-                        {% if feedback.photo %}
-                            <p><strong>Photo:</strong></p>
-                            <img src="{{ url_for('static', filename='uploads/' + feedback.photo) }}" alt="Feedback Image">
-                        {% endif %}
-                        <p><strong>Status:</strong> {{ feedback.status }}</p>
-                        {% if feedback.status == 'pending' %}
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="feedback_id" value="{{ feedback.id }}">
-                                <input type="hidden" name="action" value="approve">
-                                <input type="submit" value="Approve">
-                            </form>
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="feedback_id" value="{{ feedback.id }}">
-                                <input type="hidden" name="action" value="deny">
-                                <input type="submit" value="Deny">
-                            </form>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p>No feedback submissions yet.</p>
-            {% endif %}
+        {% if feedback_list %}
+            <h2>Feedback Submissions</h2>
+            {% for feedback in feedback_list %}
+                <div class="feedback-box">
+                    <p><strong>Route:</strong> {{ feedback.route }}</p>
+                    <p><strong>Stop:</strong> {{ feedback.stop }}</p>
+                    <p><strong>Issue:</strong> {{ feedback.issue_type }}</p>
+                    <p><strong>Comment:</strong> {{ feedback.comment }}</p>
+                    <p><strong>Date:</strong> {{ feedback.date }}</p>
+                    {% if feedback.photo %}
+                        <p><strong>Photo:</strong></p>
+                        <img src="{{ url_for('static', filename='uploads/' + feedback.photo) }}" alt="Feedback Image">
+                    {% endif %}
+                    <p><strong>Status:</strong> {{ feedback.status | upper }}</p>
+                    {% if logged_in and feedback.status == 'pending' %}
+                        <form method="POST" style="display: inline;">
+                            <input type="hidden" name="feedback_id" value="{{ feedback.id }}">
+                            <input type="hidden" name="action" value="approve">
+                            <input type="submit" value="Approve">
+                        </form>
+                        <form method="POST" style="display: inline;">
+                            <input type="hidden" name="feedback_id" value="{{ feedback.id }}">
+                            <input type="hidden" name="action" value="deny">
+                            <input type="submit" value="Deny">
+                        </form>
+                    {% endif %}
+                </div>
+            {% endfor %}
         {% else %}
-            <p>Please log in as an administrator to view feedback submissions.</p>
+            <p>No pending feedback submissions yet.</p>
         {% endif %}
 
         <div class="back-link">
