@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, get
 import os
 import requests
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
+from azure.storage.blob import BlobServiceClient
 import logging
 from datetime import datetime
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -24,6 +25,10 @@ COSMOS_KEY = os.getenv("COSMOS_KEY")
 DATABASE_NAME = "transitfeedbackdb"
 CONTAINER_NAME = "Feedback"
 
+# Azure Blob Storage setup
+BLOB_CONNECTION_STRING = os.getenv("BLOB_CONNECTION_STRING", "DefaultEndpointsProtocol=https;AccountName=transitfeedbackstorage;AccountKey=QEcGnPHAx2UYVOq4R7GNMPwxqdeC69c3lglq+fqOmkQspHL7pEgyu/8OWidZvRua+8ou4n74hNkl+AStUCjETA==;EndpointSuffix=core.windows.net")
+BLOB_CONTAINER_NAME = "feedbackimages"
+
 # Validate Cosmos DB credentials
 if not COSMOS_ENDPOINT or not COSMOS_KEY:
     logger.error("Missing Cosmos DB credentials! Using app without database functionality.")
@@ -43,6 +48,21 @@ else:
         logger.error(f"Failed to initialize Cosmos DB: {str(e)}")
         client = None
         container = None
+
+# Initialize Blob Service Client
+if not BLOB_CONNECTION_STRING:
+    logger.error("Missing Blob Storage connection string! Photos will not be uploaded.")
+    blob_service_client = None
+else:
+    try:
+        blob_service_client = BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING)
+        container_client = blob_service_client.get_container_client(BLOB_CONTAINER_NAME)
+        if not container_client.exists():
+            container_client.create_container()
+        logger.info("Blob Storage initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to initialize Blob Storage: {str(e)}")
+        blob_service_client = None
 
 # Login route
 @app.route('/login', methods=['GET', 'POST'])
@@ -101,15 +121,19 @@ def feedback():
                 "issue_type": issue_type,
                 "comment": comment,
                 "date": datetime.utcnow().isoformat(),
-                "photo": photo.filename if photo else None,
+                "photo": None,
                 "status": "pending"
             }
 
-            if photo:
-                photo_path = os.path.join('TransitFeedbackCollect/static/uploads', photo.filename)
-                photo.save(photo_path)
-                feedback_item["photo"] = photo.filename
-                logger.info(f"Photo saved locally: {photo_path}")
+            # Handle photo upload to Blob Storage
+            if photo and blob_service_client:
+                blob_name = f"{feedback_item['id']}_{photo.filename}"
+                blob_client = blob_service_client.get_blob_client(container=BLOB_CONTAINER_NAME, blob=blob_name)
+                blob_client.upload_blob(photo, overwrite=True)
+                feedback_item["photo"] = blob_client.url
+                logger.info(f"Photo uploaded to Blob Storage: {blob_name}")
+            elif photo:
+                logger.warning("Photo upload skipped due to missing Blob Storage configuration.")
 
             if container:
                 try:
@@ -125,7 +149,6 @@ def feedback():
             logger.error(f"Unexpected error in bus feedback submission: {str(e)}")
             return render_template("feedback.html", message="An unexpected error occurred.")
     
-    # Ensure GET requests always render feedback.html
     logger.info("Rendering feedback.html for GET request")
     return render_template("feedback.html")
 
@@ -150,15 +173,19 @@ def maintenance():
                 "maintenance_type": maintenance_type,
                 "message": message,
                 "date": datetime.utcnow().isoformat(),
-                "photo": photo.filename if photo else None,
+                "photo": None,
                 "status": "pending"
             }
 
-            if photo:
-                photo_path = os.path.join('TransitFeedbackCollect/static/uploads', photo.filename)
-                photo.save(photo_path)
-                feedback_item["photo"] = photo.filename
-                logger.info(f"Photo saved locally: {photo_path}")
+            # Handle photo upload to Blob Storage
+            if photo and blob_service_client:
+                blob_name = f"{feedback_item['id']}_{photo.filename}"
+                blob_client = blob_service_client.get_blob_client(container=BLOB_CONTAINER_NAME, blob=blob_name)
+                blob_client.upload_blob(photo, overwrite=True)
+                feedback_item["photo"] = blob_client.url
+                logger.info(f"Photo uploaded to Blob Storage: {blob_name}")
+            elif photo:
+                logger.warning("Photo upload skipped due to missing Blob Storage configuration.")
 
             if container:
                 try:
