@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash
 import os
 import requests
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
@@ -13,8 +13,8 @@ app = Flask(__name__, template_folder="TransitFeedbackCollect/templates", static
 app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")  # Needed for flash messages
 
 # Azure Cosmos DB setup
-COSMOS_ENDPOINT = os.getenv("COSMOS_ENDPOINT")  # Name of the env var, not the value
-COSMOS_KEY = os.getenv("COSMOS_KEY")           # Name of the env var, not the value
+COSMOS_ENDPOINT = os.getenv("COSMOS_ENDPOINT")
+COSMOS_KEY = os.getenv("COSMOS_KEY")
 DATABASE_NAME = "transitfeedbackdb"
 CONTAINER_NAME = "Feedback"
 
@@ -54,28 +54,47 @@ def index():
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     if request.method == 'POST':
-        feedback_text = request.form.get('feedback')
-        if feedback_text:
-            feedback_item = {
-                "id": str(hash(feedback_text)),
-                "feedback": feedback_text,
-                "date": "2025-03-01"
-            }
-            if container:
-                try:
-                    container.create_item(body=feedback_item)
-                    logger.info(f"Feedback saved: {feedback_text}")
-                    flash(feedback_text)  # Store feedback for thank_you and track_status
-                    return redirect(url_for('thank_you'))
-                except exceptions.CosmosHttpResponseError as e:
-                    logger.error(f"Error saving feedback: {e}")
-                    return render_template("feedback.html", message="Error saving feedback due to database issue.")
-            else:
-                logger.warning("Database unavailable, feedback not saved.")
-                flash(feedback_text)  # Still send feedback to thank_you and track_status
-                return redirect(url_for('thank_you'))
-        else:
-            return render_template("feedback.html", message="No feedback provided.")
+        route = request.form.get('route')
+        stop = request.form.get('stop')
+        issue_type = request.form.get('issue_type')
+        comment = request.form.get('comment')
+        photo = request.files.get('photo')
+
+        if not all([route, stop, issue_type, comment]):
+            return render_template("feedback.html", message="All fields except photo are required.")
+
+        # Prepare feedback item for Cosmos DB
+        feedback_item = {
+            "id": str(hash(comment + route)),  # Unique ID based on comment and route
+            "route": route,
+            "stop": stop,
+            "issue_type": issue_type,
+            "comment": comment,
+            "date": "2025-03-01",
+            "photo": photo.filename if photo else None
+        }
+
+        # Handle photo upload (optional)
+        photo_url = None
+        if photo:
+            # In a real app, save to Azure Blob Storage and get URL
+            # For now, just log the filename
+            logger.info(f"Photo uploaded: {photo.filename}")
+            photo_url = photo.filename  # Placeholder; replace with actual storage logic
+
+        if container:
+            try:
+                container.create_item(body=feedback_item)
+                logger.info(f"Feedback saved: {feedback_item}")
+            except exceptions.CosmosHttpResponseError as e:
+                logger.error(f"Error saving feedback: {e}")
+                return render_template("feedback.html", message="Error saving feedback due to database issue.")
+        
+        # Flash feedback details for track_status
+        feedback_display = f"Route: {route}, Stop: {stop}, Issue: {issue_type}, Comment: {comment}" + (f", Photo: {photo_url}" if photo_url else "")
+        flash(feedback_display)
+        return redirect(url_for('thank_you'))
+    
     return render_template("feedback.html")
 
 @app.route('/thank_you')
@@ -92,11 +111,10 @@ def maintenance():
 
 @app.route('/track_status')
 def track_status():
-    # Get flashed messages (feedback will be here if flashed)
     feedback = None
     flashed_messages = get_flashed_messages()
     if flashed_messages:
-        feedback = flashed_messages[0]  # Take the first flashed message (the feedback)
+        feedback = flashed_messages[0]  # Display the formatted feedback
     try:
         response = requests.get("https://api.example.com/transit-status")
         status_data = response.json()
