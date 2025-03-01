@@ -104,15 +104,18 @@
         .back-link a:hover {
             color: #1e3c72;
         }
+
+        .error {
+            color: red;
+            text-align: center;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Maintenance Report</h1>
-        <form method="POST" enctype="multipart/form-data" action="{{ url_for('submit_feedback') }}">
-            <!-- Hidden input to indicate this is a Maintenance submission -->
-            <input type="hidden" name="type" value="Maintenance">
-            
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('maintenance') }}">
             <div class="form-group">
                 <label>Location:</label>
                 <input type="text" name="location" required placeholder="e.g., Downtown Terminal">
@@ -135,6 +138,9 @@
             </div>
             <input type="submit" value="Submit Maintenance Report">
         </form>
+        {% if message %}
+            <p class="error">{{ message }}</p>
+        {% endif %}
         <div class="back-link">
             <a href="{{ url_for('home') }}">Back to Home</a>
         </div>
