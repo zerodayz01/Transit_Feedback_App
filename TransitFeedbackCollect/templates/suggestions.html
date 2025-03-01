@@ -100,12 +100,18 @@
         .back-link a:hover {
             color: #1e3c72;
         }
+
+        .error {
+            color: red;
+            text-align: center;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Suggestions</h1>
-        <form method="POST" enctype="multipart/form-data" action="/submit_suggestion">
+        <form method="POST" action="{{ url_for('suggestions') }}">
             <div class="form-group">
                 <label>Suggestion Category:</label>
                 <select name="category">
@@ -125,6 +131,9 @@
             </div>
             <input type="submit" value="Submit Suggestion">
         </form>
+        {% if message %}
+            <p class="error">{{ message }}</p>
+        {% endif %}
         <div class="back-link">
             <a href="{{ url_for('home') }}">Back to Home</a>
         </div>
