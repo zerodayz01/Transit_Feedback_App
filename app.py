@@ -2,9 +2,9 @@ from flask import Flask, render_template, request, redirect, url_for, flash, get
 import os
 import requests
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash, generate_password_hash
 
 # Set up logging
@@ -28,6 +28,8 @@ CONTAINER_NAME = "Feedback"
 # Azure Blob Storage setup
 BLOB_CONNECTION_STRING = os.getenv("BLOB_CONNECTION_STRING", "DefaultEndpointsProtocol=https;AccountName=transitfeedbackstorage;AccountKey=QEcGnPHAx2UYVOq4R7GNMPwxqdeC69c3lglq+fqOmkQspHL7pEgyu/8OWidZvRua+8ou4n74hNkl+AStUCjETA==;EndpointSuffix=core.windows.net")
 BLOB_CONTAINER_NAME = "feedbackimages"
+STORAGE_ACCOUNT_NAME = "transitfeedbackstorage"  # Extracted from connection string
+STORAGE_ACCOUNT_KEY = "QEcGnPHAx2UYVOq4R7GNMPwxqdeC69c3lglq+fqOmkQspHL7pEgyu/8OWidZvRua+8ou4n74hNkl+AStUCjETA=="  # Key for SAS generation
 
 # Validate Cosmos DB credentials
 if not COSMOS_ENDPOINT or not COSMOS_KEY:
@@ -130,8 +132,17 @@ def feedback():
                 blob_name = f"{feedback_item['id']}_{photo.filename}"
                 blob_client = blob_service_client.get_blob_client(container=BLOB_CONTAINER_NAME, blob=blob_name)
                 blob_client.upload_blob(photo, overwrite=True)
-                feedback_item["photo"] = blob_client.url
-                logger.info(f"Photo uploaded to Blob Storage: {blob_name}")
+                # Generate SAS token for private access
+                sas_token = generate_blob_sas(
+                    account_name=STORAGE_ACCOUNT_NAME,
+                    container_name=BLOB_CONTAINER_NAME,
+                    blob_name=blob_name,
+                    account_key=STORAGE_ACCOUNT_KEY,
+                    permission=BlobSasPermissions(read=True),
+                    expiry=datetime.utcnow() + timedelta(days=365)  # 1-year access for simplicity
+                )
+                feedback_item["photo"] = f"{blob_client.url}?{sas_token}"
+                logger.info(f"Photo uploaded to Blob Storage with SAS: {blob_name}")
             elif photo:
                 logger.warning("Photo upload skipped due to missing Blob Storage configuration.")
 
@@ -182,8 +193,17 @@ def maintenance():
                 blob_name = f"{feedback_item['id']}_{photo.filename}"
                 blob_client = blob_service_client.get_blob_client(container=BLOB_CONTAINER_NAME, blob=blob_name)
                 blob_client.upload_blob(photo, overwrite=True)
-                feedback_item["photo"] = blob_client.url
-                logger.info(f"Photo uploaded to Blob Storage: {blob_name}")
+                # Generate SAS token for private access
+                sas_token = generate_blob_sas(
+                    account_name=STORAGE_ACCOUNT_NAME,
+                    container_name=BLOB_CONTAINER_NAME,
+                    blob_name=blob_name,
+                    account_key=STORAGE_ACCOUNT_KEY,
+                    permission=BlobSasPermissions(read=True),
+                    expiry=datetime.utcnow() + timedelta(days=365)  # 1-year access for simplicity
+                )
+                feedback_item["photo"] = f"{blob_client.url}?{sas_token}"
+                logger.info(f"Photo uploaded to Blob Storage with SAS: {blob_name}")
             elif photo:
                 logger.warning("Photo upload skipped due to missing Blob Storage configuration.")
 
