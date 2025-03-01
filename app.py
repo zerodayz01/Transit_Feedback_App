@@ -1,113 +1,92 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
-from azure.cosmos import CosmosClient, exceptions
+from flask import Flask, render_template, request, redirect, url_for
 import os
-import logging
+import requests
+from azure.cosmos import CosmosClient, exceptions, PartitionKey
 
-# Configure Logging
-logging.basicConfig(level=logging.DEBUG)
-
-# Initialize Flask App
+# Flask setup
 app = Flask(__name__, template_folder="TransitFeedbackCollect/templates", static_folder="TransitFeedbackCollect/static")
 
-# ✅ Securely Load Cosmos DB Credentials from Azure Environment Variables
-COSMOS_DB_URL = os.getenv("COSMOS_DB_URL")
-COSMOS_DB_KEY = os.getenv("COSMOS_DB_KEY")
-DATABASE_NAME = "TransitFeedbackDB"
+# Azure Cosmos DB setup
+COSMOS_ENDPOINT = os.getenv("COSMOS_ENDPOINT", "https://transitfeedbackdb.documents.azure.com:443/")
+COSMOS_KEY = os.getenv("COSMOS_KEY", "hlBfsP8hDXPuIa6B6unAUcVYc34vKZtVS40X0FxjqItfOhABkkM23ZxmS4y3XQTAKDAwkihN6bRnACDbN7m6JQ==")
+DATABASE_NAME = "transitfeedbackdb"  # Updated database name
 CONTAINER_NAME = "Feedback"
 
-# ✅ Check if Cosmos DB Credentials Exist
-if not COSMOS_DB_URL or not COSMOS_DB_KEY:
-    logging.error("❌ Missing Cosmos DB credentials. Check environment variables!")
-    raise Exception("Missing Cosmos DB credentials!")
+# Initialize Cosmos DB client
+client = CosmosClient(COSMOS_ENDPOINT, COSMOS_KEY)
 
-# ✅ Connect to Cosmos DB
+# Create or get database
 try:
-    client = CosmosClient(COSMOS_DB_URL, COSMOS_DB_KEY)
-    database = client.create_database_if_not_exists(DATABASE_NAME)
-    container = database.create_container_if_not_exists(id=CONTAINER_NAME, partition_key="/type")
-    logging.info("✅ Connected to Cosmos DB successfully!")
+    database = client.create_database_if_not_exists(id=DATABASE_NAME)
 except exceptions.CosmosHttpResponseError as e:
-    logging.error(f"❌ Failed to connect to Cosmos DB: {e}")
-    raise Exception("Cosmos DB connection failed!")
+    print(f"Error creating database: {e}")
+    raise
 
-# ✅ Home Page
+# Create or get container
+try:
+    container = database.create_container_if_not_exists(
+        id=CONTAINER_NAME,
+        partition_key=PartitionKey(path="/id"),
+        offer_throughput=400  # Minimum throughput
+    )
+except exceptions.CosmosHttpResponseError as e:
+    print(f"Error creating container: {e}")
+    raise
+
+# Root route
 @app.route('/')
 def home():
-    return render_template("index.html")
+    try:
+        response = requests.get("https://api.example.com/transit-status")
+        transit_data = response.json()
+    except requests.RequestException:
+        transit_data = {"status": "Unable to fetch transit data"}
+    return render_template("index.html", transit_data=transit_data)
 
-# ✅ Render Feedback Forms
-@app.route('/contact_support')
-def contact_support():
-    return render_template("contact_support.html")
+@app.route('/index')
+def index():
+    return redirect(url_for('home'))
 
-@app.route('/feedback')
+@app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
+    if request.method == 'POST':
+        feedback_text = request.form.get('feedback')
+        if feedback_text:
+            feedback_item = {
+                "id": str(hash(feedback_text)),  # Unique ID
+                "feedback": feedback_text,
+                "date": "2025-03-01"  # Update as needed
+            }
+            try:
+                container.create_item(body=feedback_item)
+                message = "Feedback submitted successfully!"
+            except exceptions.CosmosHttpResponseError as e:
+                message = f"Error saving feedback: {e.message}"
+        else:
+            message = "No feedback provided."
+        return render_template("feedback.html", message=message)
     return render_template("feedback.html")
-
-@app.route('/feedback_summary')
-def feedback_summary():
-    return render_template("feedback_summary.html")
-
-@app.route('/maintenance')
-def maintenance():
-    return render_template("maintenance.html")
 
 @app.route('/suggestions')
 def suggestions():
     return render_template("suggestions.html")
 
+@app.route('/maintenance')
+def maintenance():
+    return render_template("maintenance.html")
+
 @app.route('/track_status')
 def track_status():
     try:
-        feedback_items = list(container.query_items(
-            query="SELECT * FROM Feedback",
-            enable_cross_partition_query=True
-        ))
-        return render_template("track_status.html", feedback=feedback_items)
-    except Exception as e:
-        logging.error(f"❌ Error retrieving feedback: {e}")
-        return "Error retrieving feedback", 500
+        response = requests.get("https://api.example.com/transit-status")
+        status_data = response.json()
+    except requests.RequestException:
+        status_data = {"status": "Status unavailable"}
+    return render_template("track_status.html", status_data=status_data)
 
-# ✅ Submit Feedback
-@app.route('/submit_feedback', methods=['POST'])
-def submit_feedback():
-    try:
-        data = request.form
-        new_feedback = {
-            "id": str(data.get("message")),  # Unique ID
-            "type": data.get("type"),
-            "message": data.get("message"),
-            "status": "Not Viewed"
-        }
-        container.create_item(new_feedback)
-        logging.info("✅ Feedback submitted successfully!")
-        return redirect(url_for("track_status"))
-    except Exception as e:
-        logging.error(f"❌ Error submitting feedback: {e}")
-        return "Error submitting feedback", 500
-
-# ✅ Mark Feedback as Viewed
-@app.route('/mark_as_viewed/<feedback_id>')
-def mark_as_viewed(feedback_id):
-    try:
-        for item in container.query_items(query="SELECT * FROM Feedback", enable_cross_partition_query=True):
-            if item["id"] == feedback_id:
-                item["status"] = "Viewed"
-                container.upsert_item(item)
-                logging.info(f"✅ Marked feedback {feedback_id} as viewed.")
-                break
-        return redirect(url_for("track_status"))
-    except Exception as e:
-        logging.error(f"❌ Error marking feedback as viewed: {e}")
-        return "Error updating feedback status", 500
-
-# ✅ Error Handler
-@app.errorhandler(Exception)
-def handle_exception(e):
-    logging.error(f"❌ App Error: {e}")
-    return jsonify({"error": "An error occurred", "message": str(e)}), 500
-
-# ✅ Run the Flask App on Azure Port 8000 (for Gunicorn)
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))  # Default to 8000 for Azure
+    app.run(host="0.0.0.0", port=port, debug=True)
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
 
