@@ -78,6 +78,7 @@ def home():
 def index():
     return redirect(url_for('home'))
 
+# Bus Feedback route
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     if request.method == 'POST':
@@ -89,11 +90,12 @@ def feedback():
             photo = request.files.get('photo')
 
             if not all([route, stop, issue_type, comment]):
-                logger.warning("Missing required fields in feedback form.")
+                logger.warning("Missing required fields in bus feedback form.")
                 return render_template("feedback.html", message="All fields except photo are required.")
 
             feedback_item = {
                 "id": str(hash(comment + route)),
+                "type": "Bus Feedback",
                 "route": route,
                 "stop": stop,
                 "issue_type": issue_type,
@@ -112,30 +114,109 @@ def feedback():
             if container:
                 try:
                     container.create_item(body=feedback_item)
-                    logger.info(f"Feedback saved: {feedback_item}")
+                    logger.info(f"Bus Feedback saved: {feedback_item}")
                 except exceptions.CosmosHttpResponseError as e:
-                    logger.error(f"Error saving feedback: {str(e)}")
+                    logger.error(f"Error saving bus feedback: {str(e)}")
                     return render_template("feedback.html", message="Error saving feedback to database.")
 
             return redirect(url_for('thank_you'))
 
         except Exception as e:
-            logger.error(f"Unexpected error in feedback submission: {str(e)}")
+            logger.error(f"Unexpected error in bus feedback submission: {str(e)}")
             return render_template("feedback.html", message="An unexpected error occurred.")
     
     return render_template("feedback.html")
 
+# Maintenance route
+@app.route('/maintenance', methods=['GET', 'POST'])
+def maintenance():
+    if request.method == 'POST':
+        try:
+            location = request.form.get('location')
+            maintenance_type = request.form.get('maintenance_type')
+            message = request.form.get('message')
+            photo = request.files.get('photo')
+
+            if not all([location, maintenance_type, message]):
+                logger.warning("Missing required fields in maintenance form.")
+                return render_template("maintenance.html", message="All fields except photo are required.")
+
+            feedback_item = {
+                "id": str(hash(message + location)),
+                "type": "Maintenance",
+                "location": location,
+                "maintenance_type": maintenance_type,
+                "message": message,
+                "date": datetime.utcnow().isoformat(),
+                "photo": photo.filename if photo else None,
+                "status": "pending"
+            }
+
+            if photo:
+                photo_path = os.path.join('TransitFeedbackCollect/static/uploads', photo.filename)
+                photo.save(photo_path)
+                feedback_item["photo"] = photo.filename
+                logger.info(f"Photo saved locally: {photo_path}")
+
+            if container:
+                try:
+                    container.create_item(body=feedback_item)
+                    logger.info(f"Maintenance report saved: {feedback_item}")
+                except exceptions.CosmosHttpResponseError as e:
+                    logger.error(f"Error saving maintenance report: {str(e)}")
+                    return render_template("maintenance.html", message="Error saving report to database.")
+
+            return redirect(url_for('thank_you'))
+
+        except Exception as e:
+            logger.error(f"Unexpected error in maintenance submission: {str(e)}")
+            return render_template("maintenance.html", message="An unexpected error occurred.")
+    
+    return render_template("maintenance.html")
+
+# Suggestions route
+@app.route('/suggestions', methods=['GET', 'POST'])
+def suggestions():
+    if request.method == 'POST':
+        try:
+            category = request.form.get('category')
+            location = request.form.get('location', '')  # Optional field
+            suggestion = request.form.get('suggestion')
+
+            if not all([category, suggestion]):
+                logger.warning("Missing required fields in suggestion form.")
+                return render_template("suggestions.html", message="Category and suggestion are required.")
+
+            feedback_item = {
+                "id": str(hash(suggestion + category)),
+                "type": "Suggestion",
+                "category": category,
+                "location": location,
+                "suggestion": suggestion,
+                "date": datetime.utcnow().isoformat(),
+                "photo": None,  # No photo field in this form
+                "status": "pending"
+            }
+
+            if container:
+                try:
+                    container.create_item(body=feedback_item)
+                    logger.info(f"Suggestion saved: {feedback_item}")
+                except exceptions.CosmosHttpResponseError as e:
+                    logger.error(f"Error saving suggestion: {str(e)}")
+                    return render_template("suggestions.html", message="Error saving suggestion to database.")
+
+            return redirect(url_for('thank_you'))
+
+        except Exception as e:
+            logger.error(f"Unexpected error in suggestion submission: {str(e)}")
+            return render_template("suggestions.html", message="An unexpected error occurred.")
+    
+    return render_template("suggestions.html")
+
 @app.route('/thank_you')
 def thank_you():
     return render_template("thank_you.html")
-
-@app.route('/suggestions')
-def suggestions():
-    return render_template("suggestions.html")
-
-@app.route('/maintenance')
-def maintenance():
-    return render_template("maintenance.html")
 
 @app.route('/track_status', methods=['GET', 'POST'])
 def track_status():
@@ -143,7 +224,6 @@ def track_status():
         current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
         status_message = f"Current Status as of {current_time}: All submissions are being reviewed."
 
-        # Handle feedback approval/denial (POST request) only for admin
         if request.method == 'POST' and session.get('logged_in'):
             feedback_id = request.form.get('feedback_id')
             action = request.form.get('action')
@@ -160,14 +240,13 @@ def track_status():
                 except exceptions.CosmosHttpResponseError as e:
                     logger.error(f"Error updating feedback status: {str(e)}")
 
-        # Fetch pending feedback for everyone, all feedback for admin
         feedback_list = []
         if container:
             try:
                 if session.get('logged_in'):
-                    query = "SELECT * FROM c"  # Admin sees all feedback
+                    query = "SELECT * FROM c"
                 else:
-                    query = "SELECT * FROM c WHERE c.status = 'pending'"  # Public sees only pending
+                    query = "SELECT * FROM c WHERE c.status = 'pending'"
                 feedback_list = list(container.query_items(query=query, enable_cross_partition_query=True))
                 logger.info(f"Fetched {len(feedback_list)} feedback items.")
             except exceptions.CosmosHttpResponseError as e:
