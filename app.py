@@ -6,6 +6,17 @@ from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPerm
 import logging
 from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash, generate_password_hash
+from opencensus.ext.azure.log_exporter import AzureLogHandler
+
+# Application Insights Instrumentation Key
+APPINSIGHTS_KEY = os.getenv("APPINSIGHTS_INSTRUMENTATIONKEY", "ae268a32-9fb3-4236-b200-7812c2bf085e")
+
+# Set up Application Insights logging
+if APPINSIGHTS_KEY:
+    logger.addHandler(AzureLogHandler(connection_string=f"InstrumentationKey={APPINSIGHTS_KEY}"))
+    logger.info("✅ Application Insights logging enabled.")
+else:
+    logger.warning("⚠️ Application Insights key is missing. Logs won't be sent to Azure.")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
