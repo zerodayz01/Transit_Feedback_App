@@ -24,6 +24,7 @@
             padding: 20px;
             color: #fff;
             margin-bottom: 40px;
+            position: relative;
         }
 
         .header h1 {
@@ -38,7 +39,7 @@
             flex-direction: row;
             justify-content: center;
             gap: 30px;
-            position: relative; /* Ensure positioning context for admin button */
+            position: relative;
         }
 
         .card {
@@ -224,10 +225,10 @@
             box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
         }
 
-        .admin-button {
+        .auth-button {
             position: absolute;
-            top: -110px;
-            right: -300px;
+            top: 20px;
+            right: 20px;
             width: 200px;
             background: rgba(255, 255, 255, 0.9);
             border-radius: 50px;
@@ -244,7 +245,7 @@
             justify-content: center;
         }
 
-        .admin-button:hover {
+        .auth-button:hover {
             transform: translateY(-10px);
             box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
         }
@@ -279,7 +280,7 @@
                 height: 40px;
                 font-size: 20px;
             }
-            .admin-button {
+            .auth-button {
                 width: 150px;
                 font-size: 0.9em;
                 padding: 10px;
@@ -308,7 +309,11 @@
             <img src="static/map.jpg" alt="Suggestions Image">
             <p>Share ideas to improve our transit system.</p>
         </a>
-        <a href="{{ url_for('login') }}" class="admin-button">Administrator Login</a>
+        {% if user %}
+            <a href="{{ url_for('logout') }}" class="auth-button">Logout</a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="auth-button">Login</a>
+        {% endif %}
     </div>
 
     <div class="description-container">
@@ -349,7 +354,7 @@
         <div class="footer-features">
             <a href="{{ url_for('feedback_summary') }}" class="feature-card">View Submitted Feedback</a>
             <a href="{{ url_for('track_status') }}" class="feature-card">Track Status</a>
-            <a href="contact_support" class="feature-card">Contact Support</a>
+            <a href="{{ url_for('contact_support') }}" class="feature-card">Contact Support</a>
         </div>
     </footer>
 
