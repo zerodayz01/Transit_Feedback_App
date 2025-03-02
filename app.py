@@ -3,9 +3,11 @@ import os
 import requests
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+import msal
 import logging
 from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash, generate_password_hash
+from functools import wraps
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -13,11 +15,15 @@ logger = logging.getLogger(__name__)
 
 # Flask setup
 app = Flask(__name__, template_folder="TransitFeedbackCollect/templates", static_folder="TransitFeedbackCollect/static")
-app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")
+app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")  # Must be set for session management
 
-# Admin credentials
-ADMIN_USERNAME = "transitadmin"
-ADMIN_PASSWORD_HASH = generate_password_hash("transitadmin")  # Password: transitadmin
+# Azure AD Configuration
+CLIENT_ID = os.getenv("CLIENT_ID", "a62d6b51-5c9f-43f2-82af-21c83f48eb44")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET", "J2s8Q~QOBntxGMunqJyvCw.E2LXdjU-3rzb-WaL3")
+TENANT_ID = os.getenv("TENANT_ID", "96b500fa-a561-403a-acc4-117f2b775b7e")
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+REDIRECT_URI = "https://transit-feedback-app.azurewebsites.net/auth/callback"
+SCOPE = ["User.Read"]  # Basic scope for user info
 
 # Azure Cosmos DB setup
 COSMOS_ENDPOINT = os.getenv("COSMOS_ENDPOINT")
@@ -28,8 +34,8 @@ CONTAINER_NAME = "Feedback"
 # Azure Blob Storage setup
 BLOB_CONNECTION_STRING = os.getenv("BLOB_CONNECTION_STRING", "DefaultEndpointsProtocol=https;AccountName=transitfeedbackstorage;AccountKey=QEcGnPHAx2UYVOq4R7GNMPwxqdeC69c3lglq+fqOmkQspHL7pEgyu/8OWidZvRua+8ou4n74hNkl+AStUCjETA==;EndpointSuffix=core.windows.net")
 BLOB_CONTAINER_NAME = "feedbackimages"
-STORAGE_ACCOUNT_NAME = "transitfeedbackstorage"  # Extracted from connection string
-STORAGE_ACCOUNT_KEY = "QEcGnPHAx2UYVOq4R7GNMPwxqdeC69c3lglq+fqOmkQspHL7pEgyu/8OWidZvRua+8ou4n74hNkl+AStUCjETA=="  # Key for SAS generation
+STORAGE_ACCOUNT_NAME = "transitfeedbackstorage"
+STORAGE_ACCOUNT_KEY = "QEcGnPHAx2UYVOq4R7GNMPwxqdeC69c3lglq+fqOmkQspHL7pEgyu/8OWidZvRua+8ou4n74hNkl+AStUCjETA=="
 
 # Validate Cosmos DB credentials
 if not COSMOS_ENDPOINT or not COSMOS_KEY:
@@ -66,27 +72,55 @@ else:
         logger.error(f"Failed to initialize Blob Storage: {str(e)}")
         blob_service_client = None
 
+# MSAL setup for Azure AD
+msal_app = msal.ConfidentialClientApplication(
+    CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
+)
+
+# Login required decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # Login route
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login')
 def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        if username == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, password):
-            session['logged_in'] = True
-            return redirect(url_for('track_status'))
-        else:
-            return render_template("login.html", message="Invalid credentials.")
-    return render_template("login.html")
+    auth_url = msal_app.get_authorization_request_url(
+        SCOPE, redirect_uri=REDIRECT_URI, response_type="code"
+    )
+    return redirect(auth_url)
+
+# Callback route for Azure AD
+@app.route('/auth/callback')
+def auth_callback():
+    code = request.args.get('code')
+    if not code:
+        return "Authentication failed: No code received", 400
+
+    token = msal_app.acquire_token_by_authorization_code(
+        code, scopes=SCOPE, redirect_uri=REDIRECT_URI
+    )
+    if "access_token" not in token:
+        logger.error(f"Token acquisition failed: {token.get('error_description', 'Unknown error')}")
+        return "Authentication failed", 400
+
+    session['user'] = token['id_token_claims']  # Store user info
+    logger.info(f"User logged in: {session['user'].get('preferred_username')}")
+    return redirect(url_for('home'))
 
 # Logout route
 @app.route('/logout')
 def logout():
-    session.pop('logged_in', None)
-    return redirect(url_for('home'))
+    session.pop('user', None)
+    return redirect(url_for('login'))  # Redirect to login instead of home
 
 # Root route
 @app.route('/')
+@login_required
 def home():
     try:
         response = requests.get("https://api.example.com/transit-status")
@@ -94,14 +128,16 @@ def home():
     except requests.RequestException as e:
         logger.error(f"Failed to fetch transit status: {str(e)}")
         transit_data = {"status": "Unable to fetch transit data"}
-    return render_template("index.html", transit_data=transit_data)
+    return render_template("index.html", transit_data=transit_data, user=session.get('user'))
 
 @app.route('/index')
+@login_required
 def index():
     return redirect(url_for('home'))
 
 # Bus Feedback route
 @app.route('/feedback', methods=['GET', 'POST'])
+@login_required
 def feedback():
     if request.method == 'POST':
         try:
@@ -127,24 +163,20 @@ def feedback():
                 "status": "pending"
             }
 
-            # Handle photo upload to Blob Storage
             if photo and blob_service_client:
                 blob_name = f"{feedback_item['id']}_{photo.filename}"
                 blob_client = blob_service_client.get_blob_client(container=BLOB_CONTAINER_NAME, blob=blob_name)
                 blob_client.upload_blob(photo, overwrite=True)
-                # Generate SAS token for private access
                 sas_token = generate_blob_sas(
                     account_name=STORAGE_ACCOUNT_NAME,
                     container_name=BLOB_CONTAINER_NAME,
                     blob_name=blob_name,
                     account_key=STORAGE_ACCOUNT_KEY,
                     permission=BlobSasPermissions(read=True),
-                    expiry=datetime.utcnow() + timedelta(days=365)  # 1-year access for simplicity
+                    expiry=datetime.utcnow() + timedelta(days=365)
                 )
                 feedback_item["photo"] = f"{blob_client.url}?{sas_token}"
                 logger.info(f"Photo uploaded to Blob Storage with SAS: {blob_name}")
-            elif photo:
-                logger.warning("Photo upload skipped due to missing Blob Storage configuration.")
 
             if container:
                 try:
@@ -160,11 +192,11 @@ def feedback():
             logger.error(f"Unexpected error in bus feedback submission: {str(e)}")
             return render_template("feedback.html", message="An unexpected error occurred.")
     
-    logger.info("Rendering feedback.html for GET request")
     return render_template("feedback.html")
 
 # Maintenance route
 @app.route('/maintenance', methods=['GET', 'POST'])
+@login_required
 def maintenance():
     if request.method == 'POST':
         try:
@@ -188,24 +220,20 @@ def maintenance():
                 "status": "pending"
             }
 
-            # Handle photo upload to Blob Storage
             if photo and blob_service_client:
                 blob_name = f"{feedback_item['id']}_{photo.filename}"
                 blob_client = blob_service_client.get_blob_client(container=BLOB_CONTAINER_NAME, blob=blob_name)
                 blob_client.upload_blob(photo, overwrite=True)
-                # Generate SAS token for private access
                 sas_token = generate_blob_sas(
                     account_name=STORAGE_ACCOUNT_NAME,
                     container_name=BLOB_CONTAINER_NAME,
                     blob_name=blob_name,
                     account_key=STORAGE_ACCOUNT_KEY,
                     permission=BlobSasPermissions(read=True),
-                    expiry=datetime.utcnow() + timedelta(days=365)  # 1-year access for simplicity
+                    expiry=datetime.utcnow() + timedelta(days=365)
                 )
                 feedback_item["photo"] = f"{blob_client.url}?{sas_token}"
                 logger.info(f"Photo uploaded to Blob Storage with SAS: {blob_name}")
-            elif photo:
-                logger.warning("Photo upload skipped due to missing Blob Storage configuration.")
 
             if container:
                 try:
@@ -225,6 +253,7 @@ def maintenance():
 
 # Suggestions route
 @app.route('/suggestions', methods=['GET', 'POST'])
+@login_required
 def suggestions():
     if request.method == 'POST':
         try:
@@ -265,6 +294,7 @@ def suggestions():
 
 # Contact Support route
 @app.route('/contact_support', methods=['GET', 'POST'])
+@login_required
 def contact_support():
     if request.method == 'POST':
         try:
@@ -305,6 +335,7 @@ def contact_support():
 
 # Thank You route with dynamic message
 @app.route('/thank_you')
+@login_required
 def thank_you():
     submission_type = request.args.get('submission_type', 'General')
     if submission_type == "Contact Support":
@@ -314,12 +345,13 @@ def thank_you():
     return render_template("thank_you.html", message=thank_you_message, submission_type=submission_type)
 
 @app.route('/track_status', methods=['GET', 'POST'])
+@login_required
 def track_status():
     try:
         current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
         status_message = f"Current Status as of {current_time}: All submissions are being reviewed."
 
-        if request.method == 'POST' and session.get('logged_in'):
+        if request.method == 'POST':
             feedback_id = request.form.get('feedback_id')
             action = request.form.get('action')
             if feedback_id and container:
@@ -338,10 +370,7 @@ def track_status():
         feedback_list = []
         if container:
             try:
-                if session.get('logged_in'):
-                    query = "SELECT * FROM c WHERE c.type != 'Contact Support'"
-                else:
-                    query = "SELECT * FROM c WHERE c.status = 'pending' AND c.type != 'Contact Support'"
+                query = "SELECT * FROM c WHERE c.type != 'Contact Support'"
                 feedback_list = list(container.query_items(query=query, enable_cross_partition_query=True))
                 logger.info(f"Fetched {len(feedback_list)} feedback items.")
             except exceptions.CosmosHttpResponseError as e:
@@ -353,13 +382,14 @@ def track_status():
         except requests.RequestException:
             status_data = {"status": status_message}
 
-        return render_template("track_status.html", status_data=status_data, feedback_list=feedback_list, logged_in=session.get('logged_in', False))
+        return render_template("track_status.html", status_data=status_data, feedback_list=feedback_list, logged_in=True)
     
     except Exception as e:
         logger.error(f"Error in track_status: {str(e)}")
         return render_template("track_status.html", status_data={"status": "Error loading status"}, feedback_list=[])
 
 @app.route('/feedback_summary')
+@login_required
 def feedback_summary():
     try:
         feedback_list = []
