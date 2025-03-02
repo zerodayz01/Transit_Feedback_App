@@ -3,11 +3,8 @@ import os
 import requests
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
-import msal
 import logging
 from datetime import datetime, timedelta
-from werkzeug.security import check_password_hash, generate_password_hash
-from functools import wraps
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -15,15 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Flask setup
 app = Flask(__name__, template_folder="TransitFeedbackCollect/templates", static_folder="TransitFeedbackCollect/static")
-app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")  # Must be set for session management
-
-# Azure AD Configuration
-CLIENT_ID = os.getenv("CLIENT_ID", "a62d6b51-5c9f-43f2-82af-21c83f48eb44")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET", "J2s8Q~QOBntxGMunqJyvCw.E2LXdjU-3rzb-WaL3")
-TENANT_ID = os.getenv("TENANT_ID", "4c25b8a6-17f7-46f9-83f0-54734ab81fb1")  # Updated Tenant ID
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-REDIRECT_URI = "https://transit-feedback-app.azurewebsites.net/auth/callback"
-SCOPE = ["User.Read"]  # Basic scope for user info
+app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")  # Still needed for session/flash, though not for auth
 
 # Azure Cosmos DB setup
 COSMOS_ENDPOINT = os.getenv("COSMOS_ENDPOINT")
@@ -72,64 +61,8 @@ else:
         logger.error(f"Failed to initialize Blob Storage: {str(e)}")
         blob_service_client = None
 
-# MSAL setup for Azure AD with error handling
-try:
-    msal_app = msal.ConfidentialClientApplication(
-        CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
-    )
-    logger.info("MSAL initialized successfully.")
-except ValueError as e:
-    logger.error(f"Failed to initialize MSAL: {str(e)}")
-    msal_app = None  # Allow app to start, but authentication will fail gracefully
-
-# Login required decorator
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user' not in session:
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-# Login route
-@app.route('/login')
-def login():
-    if not msal_app:
-        return "Authentication service unavailable. Please contact the administrator.", 500
-    auth_url = msal_app.get_authorization_request_url(
-        SCOPE, redirect_uri=REDIRECT_URI, response_type="code"
-    )
-    return redirect(auth_url)
-
-# Callback route for Azure AD
-@app.route('/auth/callback')
-def auth_callback():
-    if not msal_app:
-        return "Authentication service unavailable.", 500
-    code = request.args.get('code')
-    if not code:
-        return "Authentication failed: No code received", 400
-
-    token = msal_app.acquire_token_by_authorization_code(
-        code, scopes=SCOPE, redirect_uri=REDIRECT_URI
-    )
-    if "access_token" not in token:
-        logger.error(f"Token acquisition failed: {token.get('error_description', 'Unknown error')}")
-        return "Authentication failed", 400
-
-    session['user'] = token['id_token_claims']  # Store user info
-    logger.info(f"User logged in: {session['user'].get('preferred_username')}")
-    return redirect(url_for('home'))
-
-# Logout route
-@app.route('/logout')
-def logout():
-    session.pop('user', None)
-    return redirect(url_for('login'))
-
 # Root route
 @app.route('/')
-@login_required
 def home():
     try:
         response = requests.get("https://api.example.com/transit-status")
@@ -137,16 +70,14 @@ def home():
     except requests.RequestException as e:
         logger.error(f"Failed to fetch transit status: {str(e)}")
         transit_data = {"status": "Unable to fetch transit data"}
-    return render_template("index.html", transit_data=transit_data, user=session.get('user'))
+    return render_template("index.html", transit_data=transit_data)
 
 @app.route('/index')
-@login_required
 def index():
     return redirect(url_for('home'))
 
 # Bus Feedback route
 @app.route('/feedback', methods=['GET', 'POST'])
-@login_required
 def feedback():
     if request.method == 'POST':
         try:
@@ -205,7 +136,6 @@ def feedback():
 
 # Maintenance route
 @app.route('/maintenance', methods=['GET', 'POST'])
-@login_required
 def maintenance():
     if request.method == 'POST':
         try:
@@ -262,7 +192,6 @@ def maintenance():
 
 # Suggestions route
 @app.route('/suggestions', methods=['GET', 'POST'])
-@login_required
 def suggestions():
     if request.method == 'POST':
         try:
@@ -303,7 +232,6 @@ def suggestions():
 
 # Contact Support route
 @app.route('/contact_support', methods=['GET', 'POST'])
-@login_required
 def contact_support():
     if request.method == 'POST':
         try:
@@ -344,7 +272,6 @@ def contact_support():
 
 # Thank You route with dynamic message
 @app.route('/thank_you')
-@login_required
 def thank_you():
     submission_type = request.args.get('submission_type', 'General')
     if submission_type == "Contact Support":
@@ -354,7 +281,6 @@ def thank_you():
     return render_template("thank_you.html", message=thank_you_message, submission_type=submission_type)
 
 @app.route('/track_status', methods=['GET', 'POST'])
-@login_required
 def track_status():
     try:
         current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -391,14 +317,13 @@ def track_status():
         except requests.RequestException:
             status_data = {"status": status_message}
 
-        return render_template("track_status.html", status_data=status_data, feedback_list=feedback_list, logged_in=True)
+        return render_template("track_status.html", status_data=status_data, feedback_list=feedback_list, logged_in=False)
     
     except Exception as e:
         logger.error(f"Error in track_status: {str(e)}")
         return render_template("track_status.html", status_data={"status": "Error loading status"}, feedback_list=[])
 
 @app.route('/feedback_summary')
-@login_required
 def feedback_summary():
     try:
         feedback_list = []
