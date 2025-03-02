@@ -20,7 +20,7 @@ app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")  # Must be set for s
 # Azure AD Configuration
 CLIENT_ID = os.getenv("CLIENT_ID", "a62d6b51-5c9f-43f2-82af-21c83f48eb44")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "J2s8Q~QOBntxGMunqJyvCw.E2LXdjU-3rzb-WaL3")
-TENANT_ID = os.getenv("TENANT_ID", "96b500fa-a561-403a-acc4-117f2b775b7e")
+TENANT_ID = os.getenv("TENANT_ID", "4c25b8a6-17f7-46f9-83f0-54734ab81fb1")  # Updated Tenant ID
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI = "https://transit-feedback-app.azurewebsites.net/auth/callback"
 SCOPE = ["User.Read"]  # Basic scope for user info
@@ -72,10 +72,15 @@ else:
         logger.error(f"Failed to initialize Blob Storage: {str(e)}")
         blob_service_client = None
 
-# MSAL setup for Azure AD
-msal_app = msal.ConfidentialClientApplication(
-    CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
-)
+# MSAL setup for Azure AD with error handling
+try:
+    msal_app = msal.ConfidentialClientApplication(
+        CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
+    )
+    logger.info("MSAL initialized successfully.")
+except ValueError as e:
+    logger.error(f"Failed to initialize MSAL: {str(e)}")
+    msal_app = None  # Allow app to start, but authentication will fail gracefully
 
 # Login required decorator
 def login_required(f):
@@ -89,6 +94,8 @@ def login_required(f):
 # Login route
 @app.route('/login')
 def login():
+    if not msal_app:
+        return "Authentication service unavailable. Please contact the administrator.", 500
     auth_url = msal_app.get_authorization_request_url(
         SCOPE, redirect_uri=REDIRECT_URI, response_type="code"
     )
@@ -97,6 +104,8 @@ def login():
 # Callback route for Azure AD
 @app.route('/auth/callback')
 def auth_callback():
+    if not msal_app:
+        return "Authentication service unavailable.", 500
     code = request.args.get('code')
     if not code:
         return "Authentication failed: No code received", 400
@@ -116,7 +125,7 @@ def auth_callback():
 @app.route('/logout')
 def logout():
     session.pop('user', None)
-    return redirect(url_for('login'))  # Redirect to login instead of home
+    return redirect(url_for('login'))
 
 # Root route
 @app.route('/')
