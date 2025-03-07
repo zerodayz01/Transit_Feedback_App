@@ -12,5 +12,5 @@ flask==2.3.3
 gunicorn==20.1.0
 azure-storage-blob>=12.19.0
 msal>=1.22.0
-opencensus-ext-azure
+opencensus-ext-azure==1.1.14
 
