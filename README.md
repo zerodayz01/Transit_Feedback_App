@@ -50,9 +50,9 @@ This project utilizes several Azure services, including:
    ```
    FLASK_APP=app.py
    FLASK_ENV=development
-   COSMOS_ENDPOINT=<your_cosmos_db_endpoint>
-   COSMOS_KEY=<your_cosmos_db_key>
-   BLOB_CONNECTION_STRING=<your_blob_storage_connection_string>
+   COSMOS_ENDPOINT=<cosmos_db_endpoint>
+   COSMOS_KEY=<cosmos_db_key>
+   BLOB_CONNECTION_STRING=<blob_storage_connection_string>
    ```
 5. Run the application:
    ```bash
