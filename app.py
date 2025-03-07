@@ -303,7 +303,7 @@ def contact_support():
     
     return render_template("contact_support.html")
 
-# Thank You route with dynamic message
+# Thank You route (Message prints different based on submission)  
 @app.route('/thank_you')
 def thank_you():
     submission_type = request.args.get('submission_type', 'General')
