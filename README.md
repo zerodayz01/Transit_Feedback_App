@@ -60,9 +60,6 @@ This project utilizes several Azure services, including:
    ```
 6. Access the app in your browser at `http://127.0.0.1:5000`
 
-## Deployment on Azure
-This project is deployed using Azure App Service with a CI/CD pipeline through GitHub Actions.
-
 ### Steps to Deploy
 1. Set up Azure services
    - Create an Azure App Service instance
